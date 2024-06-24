@@ -357,3 +357,107 @@ class EmployeeManagementSystem:
 # Run the Employee Management System
 ems = EmployeeManagementSystem()
 ems.main_menu()
+Delivery Drone Optimization 
+import random
+import math
+import time
+import matplotlib.pyplot as plt
+from typing import List, Tuple
+
+class DeliveryPoint:
+    def __init__(self, x: float, y: float):
+        self.x = x
+        self.y = y
+
+    def distance_to(self, other: 'DeliveryPoint') -> float:
+        return math.hypot(self.x - other.x, self.y - other.y)
+
+class DroneDeliveryOptimizer:
+    def __init__(self, points: List[DeliveryPoint]):
+        self.points = points
+
+    def nearest_neighbor_brute(self, start: DeliveryPoint, remaining: List[DeliveryPoint]) -> DeliveryPoint:
+        return min(remaining, key=lambda p: start.distance_to(p))
+
+    def nearest_neighbor_divide_conquer(self, start: DeliveryPoint, remaining: List[DeliveryPoint]) -> DeliveryPoint:
+        def recursive_nearest(points_x: List[DeliveryPoint], points_y: List[DeliveryPoint]) -> Tuple[float, DeliveryPoint]:
+            if len(points_x) <= 3:
+                return min((start.distance_to(p), p) for p in points_x)
+
+            mid = len(points_x) // 2
+            midpoint = points_x[mid]
+            left_x, right_x = points_x[:mid], points_x[mid:]
+            left_y = [p for p in points_y if p.x <= midpoint.x]
+            right_y = [p for p in points_y if p.x > midpoint.x]
+
+            left_dist, left_point = recursive_nearest(left_x, left_y)
+            right_dist, right_point = recursive_nearest(right_x, right_y)
+
+            best = min((left_dist, left_point), (right_dist, right_point))
+
+            strip = [p for p in points_y if abs(p.x - midpoint.x) < best[0]]
+            for i, p in enumerate(strip):
+                for j in range(1, min(7, len(strip) - i)):
+                    dist = p.distance_to(strip[i + j])
+                    if dist < best[0]:
+                        best = (dist, p)
+
+            return best
+
+        sorted_x = sorted(remaining, key=lambda p: p.x)
+        sorted_y = sorted(remaining, key=lambda p: p.y)
+        return recursive_nearest(sorted_x, sorted_y)[1]
+
+    def optimize_route(self, method: str) -> Tuple[List[DeliveryPoint], float]:
+        if method not in ["brute", "divide_conquer"]:
+            raise ValueError("Invalid method. Choose 'brute' or 'divide_conquer'.")
+
+        nearest_neighbor = self.nearest_neighbor_brute if method == "brute" else self.nearest_neighbor_divide_conquer
+
+        route = [self.points[0]]
+        unvisited = self.points[1:]
+        total_distance = 0
+
+        while unvisited:
+            nearest = nearest_neighbor(route[-1], unvisited)
+            total_distance += route[-1].distance_to(nearest)
+            route.append(nearest)
+            unvisited.remove(nearest)
+
+        return route, total_distance
+
+def visualize_route(points: List[DeliveryPoint], route: List[DeliveryPoint], title: str):
+    plt.figure(figsize=(10, 10))
+    plt.scatter([p.x for p in points], [p.y for p in points], c='blue', s=10, label='Delivery Points')
+    plt.plot([p.x for p in route], [p.y for p in route], 'r-', linewidth=0.8, label='Drone Route')
+    plt.title(title)
+    plt.xlabel('X Coordinate')
+    plt.ylabel('Y Coordinate')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+def main():
+    # Generate random points
+    random_points = [DeliveryPoint(random.uniform(0, 100), random.uniform(0, 100)) for _ in range(1000)]
+
+    # Provided points (first few for demonstration)
+    provided_points = [DeliveryPoint(79, 10), DeliveryPoint(79, 26), DeliveryPoint(96, 51),
+                       DeliveryPoint(64, 53), DeliveryPoint(70, 28)]  # Add all 500 points here
+
+    for points, point_type in [(random_points, "Random"), (provided_points, "Provided")]:
+        optimizer = DroneDeliveryOptimizer(points)
+
+        for method in ["brute", "divide_conquer"]:
+            start_time = time.time()
+            route, distance = optimizer.optimize_route(method)
+            end_time = time.time()
+
+            print(f"\n{point_type} Points - {method.replace('_', ' ').title()} Method:")
+            print(f"Total distance: {distance:.2f}")
+            print(f"Execution time: {end_time - start_time:.4f} seconds")
+
+            visualize_route(points, route, f"{point_type} Points - {method.replace('_', ' ').title()} Method")
+
+if __name__ == "__main__":
+    main()
